@@ -1331,8 +1331,13 @@ def matNnorm(A):
     return max
 
 
+#The difference between functions PhiT, and PhiTn is that
+#PhiT picks a value of n, say n=300.
+#higher n results in a more accurate result.
+def PhiT(A,t):
+    return PhiTn(A,t,300)
 
-def PhiT(A, t, n):
+def PhiTn(A, t, n):
     debug=False
     # A: matN, t:number, n steps total
     # return I+At+A^2t^2/2+A^3t^3/6+A^4t^4/4!+.....
@@ -1351,7 +1356,12 @@ def PhiT(A, t, n):
         #1/(2!) A^2 t^2 (for i==2)
         #fact is factorial 1/(x!), Amult is A^2, tmult is t^2
         fact = fact*i
-        factinv = 1/fact
+        try:
+            factinv = 1.0 / math.factorial(i)
+        except OverflowError:
+            return Phi
+        if factinv == 0.0:
+            break
         #now A^i
         Amult = matN(A.ele)
         for j in range(i-1):#pretty sure this -1 should be here
@@ -1372,6 +1382,7 @@ def PhiT(A, t, n):
             print("--->")
             Phi.print()
         i=i+1
+
     Phi = matNcorr(Phi)
     return (Phi)
 
@@ -1411,8 +1422,8 @@ def matNcorr(A):
         row = [None] * A.width
         for j in range(A.width):
             val = A.ele[i][j]
-            if(abs(val) < 0.00001):
-                val=0
+            if(abs(val) < 0.001):
+                val=0.0
             else:
                 val = round(val,5)
             row[j] = val
@@ -1421,25 +1432,25 @@ def matNcorr(A):
     return(B)
 
 
-
 A=matNScale(4,matNrand(4,4))
 #A= matNeye(4)
 A.print()
 t1=-1.3
-B1=PhiT(A,t1,200)
+B1=PhiT(A,t1)
 print("Matrix B1:")
 B1.print()
 
 t2=1.3
-B2=PhiT(A,t2,200)
+B2=PhiT(A,t2)
 print("Matrix B2:")
 B2.print()
 
 
-C=PhiT(A,t1+t2,200)
+C=PhiT(A,t1+t2)
 print("Matrix C:")
 C.print()
-D=matNTimes(B1,B2)
+D= matNTimes(B1,B2)
+D = matNcorr(D)
 print("Matrix D:")
 D.print()
 
