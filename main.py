@@ -1,4 +1,5 @@
 import math
+import random
 from random import randint
 # use a list to represent a polynomial
 
@@ -1134,58 +1135,6 @@ def tf2yt(G):
     else:
         print('Error, ss2yt currently supports roots only of form (s+k)^1 and not (s+k)^2 or higher')
 
-#why make a second function?
-#this one returns a list of lists [[], [], []]
-#where the inner array contains two values, [[a,b]
-#representing Ae^b
-def tf2yt2(G):
-    #G a tf object
-
-    num = G.num
-    den = G.den
-    root = roots(den)
-    maxOrder = 1
-    for order in root[1]:
-        if order > maxOrder:
-            maxOrder=order
-    if maxOrder == 1:
-        # make new list, for each root, find its numerator PFD
-        cof = [0] * len(root[0]) #pfd coefficients corresponding to each root
-        pos = 0
-        for rt in root[0]:#for each root, find pfd
-            pnum = 1 #pfd calculation numerator
-            pden = 1 #pfd calculation denominator
-            for rta in root[0]:#for each other root
-                if rt == rta:
-                    continue
-                pden = pden*(rt -rta)
-            #finished calculating denominator
-            pnum = evalPoly(num,rt)
-            cof[pos] = (pnum/pden)
-            pos=pos+1
-
-
-        count=0
-        for rt in root[0]:
-            if not cof[pos] == 0: #if the exponential's coefficient is 0, skip printing
-              count=count+1
-        D = [None]*count #create an empty list []
-        for rt in root[0]:
-            if not cof[pos] == 0:  # if the exponential's coefficient is 0, skip printing
-                D = [round(cof[pos],5),round(rt,5)]
-        return D
-    else:
-        print('Error, ss2yt2 currently supports roots only of form (s+k)^1 and not (s+k)^2 or higher')
-
-#given some array of arrays [[], [], []], representing a coefficient of an exp
-#evaluates it in the form Aexp^pt + Bexp^qt summing all terms then returning the result
-#for some given t
-def evalExpSum(A,t):
-    sm = 0
-    for entry in A:
-        sm = sm + A[0]*math.exp(A[1])*t
-    return sm
-
 
 def tfStepResponse(tf):
     tf1 = tf2tfOneOverS(tf)
@@ -1285,6 +1234,73 @@ tfStepResponse(tf4)
 # ^ prints resulting expression
 '''
 
+###### Project 3
+#################
+
+def matSinv(A):
+    # A is a matS
+    # return inverse of A
+    D = matSdet(A)
+    F = matScof(A)
+    for i in range(F.height):
+        for j in range(F.width):
+            F.ele[i][j] = F.ele[i][j] / D
+    return F
+
+#given some array of arrays [[], [], []], representing a coefficient of an exp
+#evaluates it in the form Aexp^pt + Bexp^qt summing all terms then returning the result
+#for some given t
+def evalExpSum(A,t):
+    sm = 0
+    for entry in A:
+        sm = sm + A[0]*math.exp(A[1])*t
+    return sm
+
+
+#why make a second function?
+#this one returns a list of lists [[], [], []]
+#where the inner array contains two values, [[a,b]
+#representing Ae^b
+#instead of printing to console like tf2yt, this one actually returns the data
+def tf2yt2(G):
+    #G a tf object
+
+    num = G.num
+    den = G.den
+    root = roots(den)
+    maxOrder = 1
+    for order in root[1]:
+        if order > maxOrder:
+            maxOrder=order
+    if maxOrder == 1:
+        # make new list, for each root, find its numerator PFD
+        cof = [0] * len(root[0]) #pfd coefficients corresponding to each root
+        pos = 0
+        for rt in root[0]:#for each root, find pfd
+            pnum = 1 #pfd calculation numerator
+            pden = 1 #pfd calculation denominator
+            for rta in root[0]:#for each other root
+                if rt == rta:
+                    continue
+                pden = pden*(rt -rta)
+            #finished calculating denominator
+            pnum = evalPoly(num,rt)
+            cof[pos] = (pnum/pden)
+            pos=pos+1
+
+
+        count=0
+        for rt in root[0]:
+            if not cof[pos] == 0: #if the exponential's coefficient is 0, skip printing
+              count=count+1
+        D = [None]*count #create an empty list []
+        for rt in root[0]:
+            if not cof[pos] == 0:  # if the exponential's coefficient is 0, skip printing
+                D = [round(cof[pos],5),round(rt,5)]
+        return D
+    else:
+        print('Error, ss2yt2 currently supports roots only of form (s+k)^1 and not (s+k)^2 or higher')
+
 def sIminusA(A: matS):
     # A a matN object, some matrix that should be square
     # Returns a new matrix s*I - A
@@ -1300,16 +1316,130 @@ def sIminusA(A: matS):
 
     return matS(B)
 
-#evaluates phi of t
-def phiT(A, t):
-    B = sIminusA(A)
-    C = matSdet(B)
-    #todo, extract tf from c
-    D = tf2yt2(C) #these are just variable names, not a state space equation description ABCD
-    return evalExpSum(D,t)
+
+def matNnorm(A):
+    # A: matN
+    # return max(abs(A[i][j])
+    width = A.width
+    height = A.height
+    max = -999999999
+    for i in range(width):
+        for j in range(height):
+            val = abs(A.ele[i][j])
+            if val>max:
+                max = val
+    return max
 
 
-A=[[1,2,3],[1,2,1],[3,-2,4]]
-B = matN(A)
-C = phiT(B,1.0)
-print(C)
+
+def PhiT(A, t, n):
+    debug=False
+    # A: matN, t:number, n steps total
+    # return I+At+A^2t^2/2+A^3t^3/6+A^4t^4/4!+.....
+
+    At = matNScale(t, A)
+    N = A.height
+    I = matNeye(N)
+    Phi = matNSum(I, At)
+    i=2;
+    fact=1;
+    if n < 2:
+        print("PhiT, n should be at least 2")
+        n=2
+    while i<=n:
+        #say sub-expression is
+        #1/(2!) A^2 t^2 (for i==2)
+        #fact is factorial 1/(x!), Amult is A^2, tmult is t^2
+        fact = fact*i
+        factinv = 1/fact
+        #now A^i
+        Amult = matN(A.ele)
+        for j in range(i-1):#pretty sure this -1 should be here
+            Amult = matNTimes(Amult,A)
+        tmult = t**i
+        ith_term = matNScale(tmult*factinv,Amult)
+
+        phiclone = matN(Phi.ele)
+        Phi = matNSum(Phi,ith_term)
+
+        if debug or i == n:
+            print("PhiT step " + str(i))
+            print("t: " + str(t))
+            print("i: " + str(i))
+            print("factinv: " + str(factinv))
+            print("tmult: " + str(tmult))
+
+            print("--->")
+            Phi.print()
+        i=i+1
+    Phi = matNcorr(Phi)
+    return (Phi)
+
+def plot(t,f):#todo make work better with more dynamic scaling
+    M = 101
+    dx = 0.1
+    x = [i * dx for i in range(M)]
+    y = [(3 - x[i]) ** 2 for i in range(M)]
+
+    #t:times,
+    #f(t), function
+    import tkinter as fg
+    win1 = fg.Tk()
+
+    canv1 = fg.Canvas(width=600, height=500, bg='white')
+    canv1.pack()
+
+    M=len(t)
+    Wid=t[M-1]
+    scalet=480/Wid
+    scaley=10
+    for i in range(M-1):
+        canv1.create_line(10+scalet*t[i],250-scaley*y[i],10+scalet*t[i+1],250-scaley*y[i+1], fill='green')
+
+def matNrand(width,height):
+    #Returns a matN object of width and height with random values between 1 and 9 at each entry
+    A = []
+    for i in range(height):
+        row = [random.random() for j in range(width)]
+        A.append(row)
+    return matN(A)
+
+def matNcorr(A):
+    #given some matrix A, corrects (rounds) all entries:
+    Acopy = [None] * A.height
+    for i in range(A.height):
+        row = [None] * A.width
+        for j in range(A.width):
+            val = A.ele[i][j]
+            if(abs(val) < 0.00001):
+                val=0
+            else:
+                val = round(val,5)
+            row[j] = val
+        Acopy[i]=row
+    B = matN(Acopy)
+    return(B)
+
+
+
+A=matNScale(4,matNrand(4,4))
+#A= matNeye(4)
+A.print()
+t1=-1.3
+B1=PhiT(A,t1,200)
+print("Matrix B1:")
+B1.print()
+
+t2=1.3
+B2=PhiT(A,t2,200)
+print("Matrix B2:")
+B2.print()
+
+
+C=PhiT(A,t1+t2,200)
+print("Matrix C:")
+C.print()
+D=matNTimes(B1,B2)
+print("Matrix D:")
+D.print()
+
